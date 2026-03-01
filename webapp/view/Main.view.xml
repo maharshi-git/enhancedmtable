@@ -4,7 +4,12 @@
     xmlns:custom="customtableapp.control">
     <Page title="Enhanced Table App" class="sapUiContentPadding">
         <content>
+        <VBox>
+        
+        <VBox width="70%">
             <custom:EnhancedTable id="myEnhancedTable" data="{/tableData}" visibleRows="10" />
+        </VBox>
+        </VBox>
         </content>
     </Page>
 </mvc:View>

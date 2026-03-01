@@ -9,6 +9,27 @@ sap.ui.define([
             // Generate some hardcoded data 
             var aData = [];
             for (var i = 1; i <= 50; i++) {
+                // Nested array for multi-layered demonstration
+                var aNestedData = [];
+                for (var j = 1; j <= 3; j++) {
+                    // Third-layer nesting for deep recursive checks
+                    var aDeeplyNestedData = [];
+                    for (var k = 1; k <= 2; k++) {
+                        aDeeplyNestedData.push({
+                            "LogID": i + "-" + j + "-" + k,
+                            "Action": "Sub-Action " + k + " recorded",
+                            "Completed": k % 2 === 0
+                        });
+                    }
+
+                    aNestedData.push({
+                        "SubLine": j,
+                        "Desc": "Nested Item " + j + " for OBJ-" + i,
+                        "Amount": Math.floor(Math.random() * 50),
+                        "DeeplyNestedItems": aDeeplyNestedData // <--- Level 3 Array
+                    });
+                }
+
                 aData.push({
                     ID: "OBJ-" + i,
                     Name: "Object Name " + i,
@@ -18,8 +39,7 @@ sap.ui.define([
                     Price: (Math.random() * 100).toFixed(2),
                     ExtraField1: "Extra Value " + i,
                     ExtraField2: "More Info " + i,
-                    ExtraField3: "Detail " + i,
-                    ExtraField4: "Detail " + (i * 10)
+                    NestedItems: aNestedData
                 });
             }
 

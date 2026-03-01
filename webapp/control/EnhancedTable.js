@@ -17,8 +17,12 @@ sap.ui.define([
     "sap/m/NavContainer",
     "sap/m/Page",
     "sap/ui/layout/form/SimpleForm",
-    "sap/m/Label"
-], function (Control, VBox, Table, Column, Text, ColumnListItem, Toolbar, SearchField, Button, ToolbarSpacer, JSONModel, Filter, FilterOperator, SelectDialog, StandardListItem, NavContainer, Page, SimpleForm, Label) {
+    "sap/ui/layout/GridData",
+    "sap/m/Label",
+    "sap/m/Title",
+    "sap/m/Breadcrumbs",
+    "sap/m/Link"
+], function (Control, VBox, Table, Column, Text, ColumnListItem, Toolbar, SearchField, Button, ToolbarSpacer, JSONModel, Filter, FilterOperator, SelectDialog, StandardListItem, NavContainer, Page, SimpleForm, GridData, Label, Title, Breadcrumbs, Link) {
     "use strict";
 
     return Control.extend("customtableapp.control.EnhancedTable", {
@@ -41,6 +45,9 @@ sap.ui.define([
         },
 
         init: function () {
+            // Navigation array for breadcrumbs
+            this._aNavHistory = [];
+
             // Internal model
             this._oModel = new JSONModel({
                 items: [],
@@ -108,7 +115,7 @@ sap.ui.define([
             this._iTotalPages = 1;
 
             this._oTablePage = new Page({
-                showHeader: false,
+                showHeader: false, // Hidden since Breadcrumbs govern nav
                 content: [this._oTable, this._oPaginationBar]
             });
 
@@ -122,9 +129,7 @@ sap.ui.define([
             });
 
             this._oDetailPage = new Page({
-                title: "Object Details",
-                showNavButton: true,
-                navButtonPress: this._onNavBack.bind(this),
+                showHeader: false, // Hidden since Breadcrumbs govern nav
                 content: [this._oForm]
             });
 
@@ -133,8 +138,12 @@ sap.ui.define([
                 pages: [this._oTablePage, this._oDetailPage]
             });
 
+            this._oBreadcrumbs = new Breadcrumbs({
+                currentLocationText: "Home"
+            }).addStyleClass("sapUiSmallMargin");
+
             var oVBox = new VBox({
-                items: [this._oNavContainer]
+                items: [this._oBreadcrumbs, this._oNavContainer]
             });
 
             this.setAggregation("_layout", oVBox);
@@ -142,7 +151,15 @@ sap.ui.define([
 
         setData: function (aData) {
             this.setProperty("data", aData, true);
-            this._refreshTableState(aData);
+            this._aNavHistory = [];
+            this._pushTableState(aData, "Home");
+
+            // Auto-navigate to details if only 1 item exists at root level
+            if (aData && aData.length === 1) {
+                var oFirst = aData[0];
+                var sTitle = oFirst.id || oFirst.ID || oFirst.Name || "Detail";
+                this._pushDetailState(oFirst, sTitle);
+            }
         },
 
         setVisibleRows: function (iRows) {
@@ -150,10 +167,58 @@ sap.ui.define([
             this._updatePagination();
         },
 
-        _refreshTableState: function (aData) {
+        _updateBreadcrumbs: function () {
+            this._oBreadcrumbs.removeAllLinks();
+            this._oBreadcrumbs.setCurrentLocationText("");
+
+            var that = this;
+            var iLen = this._aNavHistory.length;
+            if (iLen === 0) return;
+
+            this._aNavHistory.forEach(function (oState, iIndex) {
+                if (iIndex === iLen - 1) {
+                    that._oBreadcrumbs.setCurrentLocationText(oState.title);
+                } else {
+                    that._oBreadcrumbs.addLink(new Link({
+                        text: oState.title,
+                        press: function () {
+                            that._restoreState(iIndex);
+                        }
+                    }));
+                }
+            });
+        },
+
+        _restoreState: function (iIndex) {
+            // Restore history array correctly to slice
+            this._aNavHistory = this._aNavHistory.slice(0, iIndex + 1);
+            var oState = this._aNavHistory[iIndex];
+            this._updateBreadcrumbs();
+
+            if (oState.type === "table") {
+                this._renderTableState(oState.data);
+            } else {
+                this._renderDetailState(oState.data);
+            }
+        },
+
+        _pushTableState: function (aData, sTitle) {
+            this._aNavHistory.push({ type: "table", data: aData, title: sTitle });
+            this._updateBreadcrumbs();
+            this._renderTableState(aData);
+        },
+
+        _pushDetailState: function (oData, sTitle) {
+            this._aNavHistory.push({ type: "detail", data: oData, title: sTitle });
+            this._updateBreadcrumbs();
+            this._renderDetailState(oData);
+        },
+
+        _renderTableState: function (aData) {
             if (!aData || aData.length === 0) {
                 this._oModel.setProperty("/items", []);
                 this._oModel.setProperty("/columns", []);
+                this._oNavContainer.to(this._oTablePage);
                 return;
             }
 
@@ -176,10 +241,7 @@ sap.ui.define([
             this._bindTableColumns();
             this._updatePagination();
 
-            // Auto-navigate to details if only 1 item exists
-            if (aData.length === 1) {
-                this._openDetailForObject(aData[0]);
-            }
+            this._oNavContainer.to(this._oTablePage);
         },
 
         _bindTableColumns: function () {
@@ -203,7 +265,19 @@ sap.ui.define([
             var oTemplate = new ColumnListItem({
                 type: "Active",
                 cells: aVisibleCols.map(function (sKey) {
-                    return new Text({ text: "{internal>" + sKey + "}" });
+                    return new Text({
+                        text: {
+                            path: "internal>" + sKey,
+                            formatter: function (vValue) {
+                                if (Array.isArray(vValue)) {
+                                    return "[" + vValue.length + " Items]";
+                                } else if (vValue !== null && typeof vValue === "object") {
+                                    return "[Nested Object]";
+                                }
+                                return vValue !== null && vValue !== undefined ? String(vValue) : "";
+                            }
+                        }
+                    });
                 })
             });
 
@@ -342,7 +416,16 @@ sap.ui.define([
             // CSV Rows
             aItems.forEach(function (oItem) {
                 var aRowData = aVisibleCols.map(function (sKey) {
-                    var sVal = oItem[sKey] !== null && oItem[sKey] !== undefined ? String(oItem[sKey]) : "";
+                    var vVal = oItem[sKey];
+                    var sVal = "";
+                    if (Array.isArray(vVal)) {
+                        sVal = "[" + vVal.length + " Items]";
+                    } else if (vVal !== null && typeof vVal === "object") {
+                        sVal = "[Nested Object]";
+                    } else if (vVal !== null && vVal !== undefined) {
+                        sVal = String(vVal);
+                    }
+
                     if (sVal.indexOf(",") > -1 || sVal.indexOf('"') > -1) {
                         sVal = '"' + sVal.replace(/"/g, '""') + '"';
                     }
@@ -378,12 +461,28 @@ sap.ui.define([
             }
         },
 
-        _openDetailForObject: function (oSelectedObj) {
+        _renderDetailState: function (oSelectedObj) {
             this._oForm.removeAllContent();
             var that = this;
             Object.keys(oSelectedObj).forEach(function (sKey) {
+                var vValue = oSelectedObj[sKey];
+
                 that._oForm.addContent(new Label({ text: sKey }));
-                that._oForm.addContent(new Text({ text: String(oSelectedObj[sKey]) }));
+
+                // Render nested array as interactive link
+                if (Array.isArray(vValue) && vValue.length > 0 && typeof vValue[0] === "object") {
+                    var oLink = new Link({
+                        text: "[" + vValue.length + " Items] - Click to view",
+                        press: function () {
+                            that._pushTableState(vValue, sKey);
+                        }
+                    });
+                    that._oForm.addContent(oLink);
+                } else {
+                    // Render standard text
+                    var sTextValue = vValue !== null && vValue !== undefined ? String(vValue) : "";
+                    that._oForm.addContent(new Text({ text: sTextValue }));
+                }
             });
 
             this._oNavContainer.to(this._oDetailPage);
@@ -394,18 +493,15 @@ sap.ui.define([
             var oContext = oItem.getBindingContext("internal");
             var oSelectedObj = oContext.getObject();
 
-            this._openDetailForObject(oSelectedObj);
+            var sTitle = oSelectedObj.id || oSelectedObj.ID || oSelectedObj.Name || "Details";
+            this._pushDetailState(oSelectedObj, sTitle);
 
             this.fireRowPress({
                 selectedObject: oSelectedObj,
-                selectedId: oSelectedObj.id || oSelectedObj.ID || oContext.getPath().split('/').pop()
+                selectedId: sTitle
             });
 
             this._oTable.removeSelections(true);
-        },
-
-        _onNavBack: function () {
-            this._oNavContainer.back();
         },
 
         renderer: function (oRm, oControl) {
