@@ -51,21 +51,12 @@
                     "name": "Main",
                     "pattern": "",
                     "target": "targetMain"
-                },
-                {
-                    "name": "Object",
-                    "pattern": "object/{objectId}",
-                    "target": "targetObject"
                 }
             ],
             "targets": {
                 "targetMain": {
                     "viewId": "Main",
                     "viewName": "Main"
-                },
-                "targetObject": {
-                    "viewId": "Object",
-                    "viewName": "Object"
                 }
             }
         }

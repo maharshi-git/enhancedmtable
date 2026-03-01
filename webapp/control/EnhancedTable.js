@@ -13,8 +13,12 @@ sap.ui.define([
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
     "sap/m/SelectDialog",
-    "sap/m/StandardListItem"
-], function (Control, VBox, Table, Column, Text, ColumnListItem, Toolbar, SearchField, Button, ToolbarSpacer, JSONModel, Filter, FilterOperator, SelectDialog, StandardListItem) {
+    "sap/m/StandardListItem",
+    "sap/m/NavContainer",
+    "sap/m/Page",
+    "sap/ui/layout/form/SimpleForm",
+    "sap/m/Label"
+], function (Control, VBox, Table, Column, Text, ColumnListItem, Toolbar, SearchField, Button, ToolbarSpacer, JSONModel, Filter, FilterOperator, SelectDialog, StandardListItem, NavContainer, Page, SimpleForm, Label) {
     "use strict";
 
     return Control.extend("customtableapp.control.EnhancedTable", {
@@ -64,17 +68,68 @@ sap.ui.define([
             });
 
             this._oTable = new Table({
-                growing: true,
-                growingThreshold: this.getVisibleRows(),
-                growingScrollToLoad: true,
+                growing: false,
                 fixedLayout: false,
                 mode: "SingleSelectMaster",
                 selectionChange: this._onRowPress.bind(this),
                 headerToolbar: oToolbar
             });
 
+            this._oPaginationBar = new sap.m.OverflowToolbar({
+                content: [
+                    new sap.m.ToolbarSpacer(),
+                    new sap.m.Button({
+                        id: this.getId() + "-btnPrev",
+                        icon: "sap-icon://navigation-left-arrow",
+                        press: this._onPrevPage.bind(this)
+                    }),
+                    new sap.m.Text({
+                        id: this.getId() + "-pageInfo",
+                        text: "Page 1 of 1"
+                    }),
+                    new sap.m.Button({
+                        id: this.getId() + "-btnNext",
+                        icon: "sap-icon://navigation-right-arrow",
+                        press: this._onNextPage.bind(this)
+                    }),
+                    new sap.m.ToolbarSpacer()
+                ]
+            });
+
+            this._oTable.setInfoToolbar(this._oPaginationBar);
+
+            // Pagination state
+            this._iCurrentPage = 1;
+            this._iTotalPages = 1;
+
+            this._oTablePage = new Page({
+                showHeader: false,
+                content: [this._oTable]
+            });
+
+            this._oForm = new SimpleForm({
+                editable: false,
+                layout: "ResponsiveGridLayout",
+                title: "All Values",
+                columnsM: 2,
+                columnsL: 3,
+                columnsXL: 4
+            });
+
+            this._oDetailPage = new Page({
+                title: "Object Details",
+                showNavButton: true,
+                navButtonPress: this._onNavBack.bind(this),
+                content: [this._oForm]
+            });
+
+            this._oNavContainer = new NavContainer({
+                height: "40rem",
+                pages: [this._oTablePage, this._oDetailPage]
+            });
+
             var oVBox = new VBox({
-                items: [this._oTable]
+                items: [this._oNavContainer]
             });
 
             this.setAggregation("_layout", oVBox);
@@ -87,9 +142,7 @@ sap.ui.define([
 
         setVisibleRows: function (iRows) {
             this.setProperty("visibleRows", iRows, true);
-            if (this._oTable) {
-                this._oTable.setGrowingThreshold(iRows);
-            }
+            this._updatePagination();
         },
 
         _refreshTableState: function (aData) {
@@ -113,8 +166,10 @@ sap.ui.define([
             this._oModel.setProperty("/items", aData);
             this._oModel.setProperty("/allKeys", aAllKeys);
 
+            this._iCurrentPage = 1;
+
             this._bindTableColumns();
-            this._bindTableItems();
+            this._updatePagination();
         },
 
         _bindTableColumns: function () {
@@ -144,15 +199,64 @@ sap.ui.define([
 
             this._oTable.unbindItems();
             this._oTable.bindItems({
-                path: "internal>/items",
+                path: "internal>/pagedItems",
                 template: oTemplate
             });
         },
 
+        _updatePagination: function () {
+            var aAllItems = this._oModel.getProperty("/items") || [];
+
+            // Apply current filters if any
+            var oBinding = this._oTable.getBinding("items");
+            if (this._aCurrentFilters && this._aCurrentFilters.length > 0) {
+                var aFiltered = aAllItems.filter(function (oItem) {
+                    var match = false;
+                    this._aCurrentFilters.forEach(function (oFilter) {
+                        if (oFilter.fnTest(oItem)) match = true;
+                    });
+                    return match;
+                }.bind(this));
+                aAllItems = aFiltered;
+            }
+
+            var iVisibleRows = this.getVisibleRows();
+            this._iTotalPages = Math.ceil(aAllItems.length / iVisibleRows) || 1;
+
+            if (this._iCurrentPage > this._iTotalPages) {
+                this._iCurrentPage = 1;
+            }
+
+            var sInfoText = "Page " + this._iCurrentPage + " of " + this._iTotalPages;
+            sap.ui.getCore().byId(this.getId() + "-pageInfo").setText(sInfoText);
+
+            sap.ui.getCore().byId(this.getId() + "-btnPrev").setEnabled(this._iCurrentPage > 1);
+            sap.ui.getCore().byId(this.getId() + "-btnNext").setEnabled(this._iCurrentPage < this._iTotalPages);
+
+            var iStartIndex = (this._iCurrentPage - 1) * iVisibleRows;
+            var aPagedData = aAllItems.slice(iStartIndex, iStartIndex + iVisibleRows);
+
+            this._oModel.setProperty("/pagedItems", aPagedData);
+            this._bindTableItems();
+        },
+
+        _onPrevPage: function () {
+            if (this._iCurrentPage > 1) {
+                this._iCurrentPage--;
+                this._updatePagination();
+            }
+        },
+
+        _onNextPage: function () {
+            if (this._iCurrentPage < this._iTotalPages) {
+                this._iCurrentPage++;
+                this._updatePagination();
+            }
+        },
+
         _onSearch: function (oEvent) {
             var sQuery = oEvent.getParameter("newValue");
-            var oBinding = this._oTable.getBinding("items");
-            if (!oBinding) return;
+            this._iCurrentPage = 1; // reset on search
 
             if (sQuery && sQuery.length > 0) {
                 var sQueryLower = sQuery.toLowerCase();
@@ -175,10 +279,12 @@ sap.ui.define([
                     }
                 });
 
-                oBinding.filter([oCustomFilter], "Application");
+                this._aCurrentFilters = [oCustomFilter];
             } else {
-                oBinding.filter([]);
+                this._aCurrentFilters = [];
             }
+
+            this._updatePagination();
         },
 
         _onOpenSettings: function () {
@@ -234,12 +340,27 @@ sap.ui.define([
             var oContext = oItem.getBindingContext("internal");
             var oSelectedObj = oContext.getObject();
 
+            // Populate form dynamically
+            this._oForm.removeAllContent();
+            var that = this;
+            Object.keys(oSelectedObj).forEach(function (sKey) {
+                that._oForm.addContent(new Label({ text: sKey }));
+                that._oForm.addContent(new Text({ text: String(oSelectedObj[sKey]) }));
+            });
+
+            // Navigate to detail page
+            this._oNavContainer.to(this._oDetailPage);
+
             this.fireRowPress({
                 selectedObject: oSelectedObj,
                 selectedId: oSelectedObj.id || oSelectedObj.ID || oContext.getPath().split('/').pop()
             });
 
             this._oTable.removeSelections(true);
+        },
+
+        _onNavBack: function () {
+            this._oNavContainer.back();
         },
 
         renderer: function (oRm, oControl) {

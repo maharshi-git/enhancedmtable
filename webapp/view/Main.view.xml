@@ -4,7 +4,7 @@
     xmlns:custom="customtableapp.control">
     <Page title="Enhanced Table App" class="sapUiContentPadding">
         <content>
-            <custom:EnhancedTable id="myEnhancedTable" data="{/tableData}" visibleRows="10" rowPress=".onRowPress" />
+            <custom:EnhancedTable id="myEnhancedTable" data="{/tableData}" visibleRows="10" />
         </content>
     </Page>
 </mvc:View>

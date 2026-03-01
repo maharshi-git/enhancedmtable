@@ -30,15 +30,6 @@ sap.ui.define([
             // Set it to component to make it globally accessible by object ID
             this.getOwnerComponent().setModel(oModel);
             this.getView().setModel(oModel);
-        },
-
-        onRowPress: function (oEvent) {
-            var oSelectedObject = oEvent.getParameter("selectedObject");
-            var sObjectId = oSelectedObject.ID;
-
-            this.getOwnerComponent().getRouter().navTo("Object", {
-                objectId: sObjectId
-            });
         }
     });
 });
