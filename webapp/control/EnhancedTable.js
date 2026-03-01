@@ -59,10 +59,17 @@ sap.ui.define([
                 tooltip: "Select Columns"
             });
 
+            var oExportBtn = new Button({
+                icon: "sap-icon://excel-attachment",
+                press: this._onExportExcel.bind(this),
+                tooltip: "Export to CSV"
+            });
+
             var oToolbar = new Toolbar({
                 content: [
                     oSearchField,
                     new ToolbarSpacer(),
+                    oExportBtn,
                     oSettingsBtn
                 ]
             });
@@ -96,15 +103,13 @@ sap.ui.define([
                 ]
             });
 
-            this._oTable.setInfoToolbar(this._oPaginationBar);
-
             // Pagination state
             this._iCurrentPage = 1;
             this._iTotalPages = 1;
 
             this._oTablePage = new Page({
                 showHeader: false,
-                content: [this._oTable]
+                content: [this._oTable, this._oPaginationBar]
             });
 
             this._oForm = new SimpleForm({
@@ -170,6 +175,11 @@ sap.ui.define([
 
             this._bindTableColumns();
             this._updatePagination();
+
+            // Auto-navigate to details if only 1 item exists
+            if (aData.length === 1) {
+                this._openDetailForObject(aData[0]);
+            }
         },
 
         _bindTableColumns: function () {
@@ -319,6 +329,39 @@ sap.ui.define([
             this._oSelectDialog.open();
         },
 
+        _onExportExcel: function () {
+            var aItems = this._oModel.getProperty("/items");
+            if (!aItems || aItems.length === 0) return;
+
+            var aColumnsData = this._oModel.getProperty("/columns");
+            var aVisibleCols = aColumnsData.filter(function (c) { return c.visible; }).map(function (c) { return c.name; });
+
+            // CSV Header
+            var sCsv = aVisibleCols.join(",") + "\n";
+
+            // CSV Rows
+            aItems.forEach(function (oItem) {
+                var aRowData = aVisibleCols.map(function (sKey) {
+                    var sVal = oItem[sKey] !== null && oItem[sKey] !== undefined ? String(oItem[sKey]) : "";
+                    if (sVal.indexOf(",") > -1 || sVal.indexOf('"') > -1) {
+                        sVal = '"' + sVal.replace(/"/g, '""') + '"';
+                    }
+                    return sVal;
+                });
+                sCsv += aRowData.join(",") + "\n";
+            });
+
+            var blob = new window.Blob([sCsv], { type: "text/csv;charset=utf-8;" });
+            var link = document.createElement("a");
+            var url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "Export.csv");
+            link.style.visibility = "hidden";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        },
+
         _onSettingsConfirm: function (oEvent) {
             var aContexts = oEvent.getParameter("selectedContexts");
             if (aContexts) {
@@ -335,12 +378,7 @@ sap.ui.define([
             }
         },
 
-        _onRowPress: function (oEvent) {
-            var oItem = oEvent.getParameter("listItem");
-            var oContext = oItem.getBindingContext("internal");
-            var oSelectedObj = oContext.getObject();
-
-            // Populate form dynamically
+        _openDetailForObject: function (oSelectedObj) {
             this._oForm.removeAllContent();
             var that = this;
             Object.keys(oSelectedObj).forEach(function (sKey) {
@@ -348,8 +386,15 @@ sap.ui.define([
                 that._oForm.addContent(new Text({ text: String(oSelectedObj[sKey]) }));
             });
 
-            // Navigate to detail page
             this._oNavContainer.to(this._oDetailPage);
+        },
+
+        _onRowPress: function (oEvent) {
+            var oItem = oEvent.getParameter("listItem");
+            var oContext = oItem.getBindingContext("internal");
+            var oSelectedObj = oContext.getObject();
+
+            this._openDetailForObject(oSelectedObj);
 
             this.fireRowPress({
                 selectedObject: oSelectedObj,
