@@ -1,0 +1,73 @@
+{
+    "_version": "1.49.0",
+    "sap.app": {
+        "id": "customtableapp",
+        "type": "application",
+        "title": "Custom Table Application",
+        "applicationVersion": {
+            "version": "1.0.0"
+        }
+    },
+    "sap.ui": {
+        "technology": "UI5",
+        "deviceTypes": {
+            "desktop": true,
+            "tablet": true,
+            "phone": true
+        }
+    },
+    "sap.ui5": {
+        "rootView": {
+            "viewName": "customtableapp.view.App",
+            "type": "XML",
+            "async": true,
+            "id": "app"
+        },
+        "dependencies": {
+            "minUI5Version": "1.108.0",
+            "libs": {
+                "sap.m": {},
+                "sap.ui.core": {},
+                "sap.ui.layout": {}
+            }
+        },
+        "models": {
+            "": {
+                "type": "sap.ui.model.json.JSONModel"
+            }
+        },
+        "routing": {
+            "config": {
+                "routerClass": "sap.m.routing.Router",
+                "viewType": "XML",
+                "async": true,
+                "viewPath": "customtableapp.view",
+                "controlAggregation": "pages",
+                "controlId": "app",
+                "clearControlAggregation": false
+            },
+            "routes": [
+                {
+                    "name": "Main",
+                    "pattern": "",
+                    "target": "targetMain"
+                },
+                {
+                    "name": "Object",
+                    "pattern": "object/{objectId}",
+                    "target": "targetObject"
+                }
+            ],
+            "targets": {
+                "targetMain": {
+                    "viewId": "Main",
+                    "viewName": "Main"
+                },
+                "targetObject": {
+                    "viewId": "Object",
+                    "viewName": "Object"
+                }
+            }
+        }
+    }
+}

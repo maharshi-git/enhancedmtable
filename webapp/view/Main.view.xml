@@ -1,0 +1,10 @@
+<mvc:View controllerName="customtableapp.controller.Main"
+    xmlns:mvc="sap.ui.core.mvc" displayBlock="true"
+    xmlns="sap.m"
+    xmlns:custom="customtableapp.control">
+    <Page title="Enhanced Table App" class="sapUiContentPadding">
+        <content>
+            <custom:EnhancedTable id="myEnhancedTable" data="{/tableData}" visibleRows="10" rowPress=".onRowPress" />
+        </content>
+    </Page>
+</mvc:View>

@@ -1,0 +1,18 @@
+<mvc:View controllerName="customtableapp.controller.Object"
+    xmlns:mvc="sap.ui.core.mvc" displayBlock="true"
+    xmlns="sap.m"
+    xmlns:form="sap.ui.layout.form"
+    xmlns:layout="sap.ui.layout">
+    <Page title="Object Details" showNavButton="true" navButtonPress=".onNavBack">
+        <content>
+            <form:SimpleForm id="objectForm"
+                editable="false"
+                layout="ResponsiveGridLayout"
+                title="All Values"
+                columnsM="2"
+                columnsL="3"
+                columnsXL="4">
+            </form:SimpleForm>
+        </content>
+    </Page>
+</mvc:View>

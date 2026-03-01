@@ -1,0 +1,18 @@
+{
+  "name": "customtableapp",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "npx -y serve webapp -p 3462 --cors",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@ui5/cli": "^4.0.46",
+    "ui5-middleware-livereload": "^3.2.1"
+  }
+}
