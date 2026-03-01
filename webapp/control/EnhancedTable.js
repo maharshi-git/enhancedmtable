@@ -153,13 +153,6 @@ sap.ui.define([
             this.setProperty("data", aData, true);
             this._aNavHistory = [];
             this._pushTableState(aData, "Home");
-
-            // Auto-navigate to details if only 1 item exists at root level
-            if (aData && aData.length === 1) {
-                var oFirst = aData[0];
-                var sTitle = oFirst.id || oFirst.ID || oFirst.Name || "Detail";
-                this._pushDetailState(oFirst, sTitle);
-            }
         },
 
         setVisibleRows: function (iRows) {
@@ -195,17 +188,27 @@ sap.ui.define([
             var oState = this._aNavHistory[iIndex];
             this._updateBreadcrumbs();
 
+            // We are explicitly reversing down the stack
             if (oState.type === "table") {
-                this._renderTableState(oState.data);
+                this._renderTableState(oState.data, true);
             } else {
-                this._renderDetailState(oState.data);
+                this._renderDetailState(oState.data, true);
             }
         },
 
         _pushTableState: function (aData, sTitle) {
             this._aNavHistory.push({ type: "table", data: aData, title: sTitle });
-            this._updateBreadcrumbs();
-            this._renderTableState(aData);
+
+            // Auto-navigate to details if only 1 item exists, bypassing table render to avoid routing collisions
+            if (aData && aData.length === 1) {
+                this._updateBreadcrumbs();
+                var oFirst = aData[0];
+                var sDetailTitle = oFirst.id || oFirst.ID || oFirst.Name || "Details";
+                this._pushDetailState(oFirst, sDetailTitle);
+            } else {
+                this._updateBreadcrumbs();
+                this._renderTableState(aData);
+            }
         },
 
         _pushDetailState: function (oData, sTitle) {
@@ -214,11 +217,15 @@ sap.ui.define([
             this._renderDetailState(oData);
         },
 
-        _renderTableState: function (aData) {
+        _renderTableState: function (aData, bBack) {
             if (!aData || aData.length === 0) {
                 this._oModel.setProperty("/items", []);
                 this._oModel.setProperty("/columns", []);
-                this._oNavContainer.to(this._oTablePage);
+                if (bBack) {
+                    this._oNavContainer.backToPage(this._oTablePage.getId());
+                } else {
+                    this._oNavContainer.to(this._oTablePage);
+                }
                 return;
             }
 
@@ -241,7 +248,11 @@ sap.ui.define([
             this._bindTableColumns();
             this._updatePagination();
 
-            this._oNavContainer.to(this._oTablePage);
+            if (bBack) {
+                this._oNavContainer.backToPage(this._oTablePage.getId());
+            } else {
+                this._oNavContainer.to(this._oTablePage);
+            }
         },
 
         _bindTableColumns: function () {
@@ -461,7 +472,7 @@ sap.ui.define([
             }
         },
 
-        _renderDetailState: function (oSelectedObj) {
+        _renderDetailState: function (oSelectedObj, bBack) {
             this._oForm.removeAllContent();
             var that = this;
             Object.keys(oSelectedObj).forEach(function (sKey) {
@@ -485,7 +496,11 @@ sap.ui.define([
                 }
             });
 
-            this._oNavContainer.to(this._oDetailPage);
+            if (bBack) {
+                this._oNavContainer.backToPage(this._oDetailPage.getId());
+            } else {
+                this._oNavContainer.to(this._oDetailPage);
+            }
         },
 
         _onRowPress: function (oEvent) {
