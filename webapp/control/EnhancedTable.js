@@ -147,6 +147,14 @@ sap.ui.define([
             });
 
             this.setAggregation("_layout", oVBox);
+
+            // Explicitly propagate the internal model to all inner controls.
+            // This is critical when EnhancedTable is used inside a List template
+            // (CustomListItem), where automatic model inheritance can fail.
+            this._oTable.setModel(this._oModel, "internal");
+            this._oNavContainer.setModel(this._oModel, "internal");
+            this._oTablePage.setModel(this._oModel, "internal");
+            this._oDetailPage.setModel(this._oModel, "internal");
         },
 
         setData: function (aData) {
